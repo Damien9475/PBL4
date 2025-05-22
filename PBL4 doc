@@ -6,19 +6,52 @@ from tkinter import filedialog, simpledialog
 import tkinter.messagebox as msg  # used for msg.showinfo(...)
 
 class City:
+    """
+    Represents a city with a name, latitude, longitude, and distance from a reference point.
+    """
     def __init__(self, name, lat, lon):
+        """
+        Initialize a City instance.
+
+        Args:
+            name (str): Name of the city.
+            lat (float): Latitude of the city.
+            lon (float): Longitude of the city.
+        """
         self.name = name
         self.lat = float(lat)
         self.lon = float(lon)
         self.distance = 0
 
     def compute_distance(self, ref_lat, ref_lon):
+        """
+        Compute the distance from the city to a reference point.
+
+        Args:
+            ref_lat (float): Latitude of the reference point.
+            ref_lon (float): Longitude of the reference point.
+        """
         self.distance = haversine(self.lat, self.lon, ref_lat, ref_lon)
 
     def __repr__(self):
+        """
+        Return a string representation of the City instance.
+        """
         return f"{self.name} ({self.lat}, {self.lon}) - {self.distance:.2f} km"
 
 def haversine(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great-circle distance between two points on the Earth.
+
+    Args:
+        lat1 (float): Latitude of the first point.
+        lon1 (float): Longitude of the first point.
+        lat2 (float): Latitude of the second point.
+        lon2 (float): Longitude of the second point.
+
+    Returns:
+        float: Distance between the two points in kilometers.
+    """
     R = 6371
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -28,6 +61,15 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 def load_cities(csv_file):
+    """
+    Load cities from a CSV file.
+
+    Args:
+        csv_file (str): Path to the CSV file.
+
+    Returns:
+        list: List of City instances.
+    """
     cities = []
     with open(csv_file, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -42,6 +84,15 @@ def load_cities(csv_file):
     return cities
 
 def insertion_sort(cities):
+    """
+    Sort a list of cities by distance using the insertion sort algorithm.
+
+    Args:
+        cities (list): List of City instances.
+
+    Returns:
+        list: Sorted list of City instances.
+    """
     cities = cities.copy()
     for i in range(1, len(cities)):
         key = cities[i]
@@ -53,6 +104,15 @@ def insertion_sort(cities):
     return cities
 
 def quick_sort(cities):
+    """
+    Sort a list of cities by distance using the quick sort algorithm.
+
+    Args:
+        cities (list): List of City instances.
+
+    Returns:
+        list: Sorted list of City instances.
+    """
     if len(cities) <= 1:
         return cities
     pivot = cities[len(cities) // 2]
@@ -62,6 +122,15 @@ def quick_sort(cities):
     return quick_sort(left) + center + quick_sort(right)
 
 def merge_sort(cities):
+    """
+    Sort a list of cities by distance using the merge sort algorithm.
+
+    Args:
+        cities (list): List of City instances.
+
+    Returns:
+        list: Sorted list of City instances.
+    """
     if len(cities) <= 1:
         return cities
     mid = len(cities) // 2
@@ -70,6 +139,16 @@ def merge_sort(cities):
     return merge(left, right)
 
 def merge(left, right):
+    """
+    Merge two sorted lists of cities.
+
+    Args:
+        left (list): Left list of City instances.
+        right (list): Right list of City instances.
+
+    Returns:
+        list: Merged list of City instances.
+    """
     result = []
     i = j = 0
     while i < len(left) and j < len(right):
@@ -84,6 +163,15 @@ def merge(left, right):
     return result
 
 def get_quantiles(sorted_cities):
+    """
+    Get quantiles from a sorted list of cities.
+
+    Args:
+        sorted_cities (list): Sorted list of City instances.
+
+    Returns:
+        tuple: Closest city, first quartile, median, and farthest city.
+    """
     n = len(sorted_cities)
     q1 = sorted_cities[n // 4]
     median = sorted_cities[n // 2]
@@ -92,7 +180,39 @@ def get_quantiles(sorted_cities):
 
 import matplotlib.pyplot as plt  # Already added at the top
 
+
+"""
 def compare_algorithms(cities, ref_lat, ref_lon):
+    sizes = [100, 500, 1000, 2000, 3000]
+    results = []
+
+    for size in sizes:
+        subset = cities[:size]
+        for c in subset:
+            c.compute_distance(ref_lat, ref_lon)
+
+        for algo_name, algo in [('Insertion', insertion_sort), ('Quick', quick_sort), ('Merge', merge_sort)]:
+            copy = subset.copy()
+            start = time.time()
+            algo(copy)
+            duration = time.time() - start
+            results.append(f"{algo_name} ({size} elements): {duration:.4f} s")
+
+    msg.showinfo("Sorting Time", "\n".join(results))
+
+"""
+
+
+
+def compare_algorithms(cities, ref_lat, ref_lon):
+    """
+    Compare the performance of sorting algorithms.
+
+    Args:
+        cities (list): List of City instances.
+        ref_lat (float): Latitude of the reference point.
+        ref_lon (float): Longitude of the reference point.
+    """
     sizes = [100, 500, 1000, 2000, 3000]
     algorithms = ['Insertion', 'Quick', 'Merge']
     results = {algo: [] for algo in algorithms}
@@ -122,6 +242,12 @@ def compare_algorithms(cities, ref_lat, ref_lon):
     plt.show()
 
 def export_results(sorted_cities):
+    """
+    Export the sorted cities to a CSV file.
+
+    Args:
+        sorted_cities (list): Sorted list of City instances.
+    """
     path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
     if not path:
         return
@@ -133,6 +259,9 @@ def export_results(sorted_cities):
     msg.showinfo("Export complete", "The results were successfully exported.")
 
 def main():
+    """
+    Main function to load cities, compute distances, and compare sorting algorithms.
+    """
     path = input("CSV file path: ")
     cities = load_cities(path)
     print(f"{len(cities)} cities loaded.")

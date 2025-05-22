@@ -90,23 +90,24 @@ def quantiles(communes_triees):
     # On retourne communes_triees[1] (et non [0]) car on souhaite ignorer la ville de référence elle-même
     return communes_triees[1], q1, mediane, communes_triees[-1]
 """
-def comparer_algos(communes, lat_ref, lon_ref):
-    tailles = [100, 500, 1000, 2000, 3000]
-    resultats = []
+def compare_algorithms(cities, ref_lat, ref_lon):
+    sizes = [100, 500, 1000, 2000, 3000]
+    results = []
 
-    for taille in tailles:
-        sous_ensemble = communes[:taille]
-        for c in sous_ensemble:
-            c.calculer_distance(lat_ref, lon_ref)
+    for size in sizes:
+        subset = cities[:size]
+        for c in subset:
+            c.compute_distance(ref_lat, ref_lon)
 
-        for nom_algo, algo in [('Insertion', tri_insertion), ('Rapide', tri_rapide), ('Fusion', tri_fusion)]:
-            copie = sous_ensemble.copy()
-            debut = time.time()
-            algo(copie)
-            duree = time.time() - debut
-            resultats.append(f"{nom_algo} ({taille} éléments) : {duree:.4f} s")
+        for algo_name, algo in [('Insertion', insertion_sort), ('Quick', quick_sort), ('Merge', merge_sort)]:
+            copy = subset.copy()
+            start = time.time()
+            algo(copy)
+            duration = time.time() - start
+            results.append(f"{algo_name} ({size} elements): {duration:.4f} s")
 
-    msg.showinfo("Temps de tri", "\n".join(resultats))
+    msg.showinfo("Sorting Time", "\n".join(results))
+
 """
 
 import matplotlib.pyplot as plt  # ✅ À ajouter en haut du fichier
