@@ -1,0 +1,198 @@
+import csv
+import math
+import time
+import tkinter as tk
+from tkinter import filedialog, simpledialog
+import tkinter.messagebox as msg  # ✅ utilisé pour msg.showinfo(...)
+
+class Commune:
+    def __init__(self, nom, lat, lon):
+        self.nom = nom
+        self.lat = float(lat)
+        self.lon = float(lon)
+        self.distance = 0
+
+    def calculer_distance(self, lat_ref, lon_ref):
+        self.distance = haversine(self.lat, self.lon, lat_ref, lon_ref)
+
+    def __repr__(self):
+        return f"{self.nom} ({self.lat}, {self.lon}) - {self.distance:.2f} km"
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+def charger_communes(fichier_csv):
+    communes = []
+    with open(fichier_csv, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                nom = row['nom_standard']
+                lat = float(row['latitude_mairie'])
+                lon = float(row['longitude_mairie'])
+                communes.append(Commune(nom, lat, lon))
+            except (ValueError, KeyError):
+                continue
+    return communes
+
+def tri_insertion(communes):
+    communes = communes.copy()
+    for i in range(1, len(communes)):
+        key = communes[i]
+        j = i - 1
+        while j >= 0 and communes[j].distance > key.distance:
+            communes[j + 1] = communes[j]
+            j -= 1
+        communes[j + 1] = key
+    return communes
+
+def tri_rapide(communes):
+    if len(communes) <= 1:
+        return communes
+    pivot = communes[len(communes) // 2]
+    gauche = [x for x in communes if x.distance < pivot.distance]
+    centre = [x for x in communes if x.distance == pivot.distance]
+    droite = [x for x in communes if x.distance > pivot.distance]
+    return tri_rapide(gauche) + centre + tri_rapide(droite)
+
+def tri_fusion(communes):
+    if len(communes) <= 1:
+        return communes
+    milieu = len(communes) // 2
+    gauche = tri_fusion(communes[:milieu])
+    droite = tri_fusion(communes[milieu:])
+    return fusion(gauche, droite)
+
+def fusion(gauche, droite):
+    resultat = []
+    i = j = 0
+    while i < len(gauche) and j < len(droite):
+        if gauche[i].distance <= droite[j].distance:
+            resultat.append(gauche[i])
+            i += 1
+        else:
+            resultat.append(droite[j])
+            j += 1
+    resultat.extend(gauche[i:])
+    resultat.extend(droite[j:])
+    return resultat
+
+def quantiles(communes_triees):
+    n = len(communes_triees)
+    q1 = communes_triees[n // 4]
+    mediane = communes_triees[n // 2]
+    # On retourne communes_triees[1] (et non [0]) car on souhaite ignorer la ville de référence elle-même
+    return communes_triees[1], q1, mediane, communes_triees[-1]
+"""
+def comparer_algos(communes, lat_ref, lon_ref):
+    tailles = [100, 500, 1000, 2000, 3000]
+    resultats = []
+
+    for taille in tailles:
+        sous_ensemble = communes[:taille]
+        for c in sous_ensemble:
+            c.calculer_distance(lat_ref, lon_ref)
+
+        for nom_algo, algo in [('Insertion', tri_insertion), ('Rapide', tri_rapide), ('Fusion', tri_fusion)]:
+            copie = sous_ensemble.copy()
+            debut = time.time()
+            algo(copie)
+            duree = time.time() - debut
+            resultats.append(f"{nom_algo} ({taille} éléments) : {duree:.4f} s")
+
+    msg.showinfo("Temps de tri", "\n".join(resultats))
+"""
+
+import matplotlib.pyplot as plt  # ✅ À ajouter en haut du fichier
+
+def comparer_algos(communes, lat_ref, lon_ref):
+    tailles = [100, 500, 1000, 2000, 3000]
+    algorithmes = ['Insertion', 'Rapide', 'Fusion']
+    resultats = {algo: [] for algo in algorithmes}
+
+    for taille in tailles:
+        sous_ensemble = communes[:taille]
+        for c in sous_ensemble:
+            c.calculer_distance(lat_ref, lon_ref)
+
+        for nom_algo, algo in [('Insertion', tri_insertion), ('Rapide', tri_rapide), ('Fusion', tri_fusion)]:
+            copie = sous_ensemble.copy()
+            debut = time.time()
+            algo(copie)
+            duree = time.time() - debut
+            resultats[nom_algo].append(duree)
+
+    # Affichage graphique
+    for nom_algo in algorithmes:
+        plt.plot(tailles, resultats[nom_algo], marker='o', label=nom_algo)
+
+    plt.title("Comparaison des temps de tri")
+    plt.xlabel("Nombre de communes triées")
+    plt.ylabel("Temps (secondes)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def exporter_resultats(communes_triees):
+    chemin = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+    if not chemin:
+        return
+    with open(chemin, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Nom', 'Latitude', 'Longitude', 'Distance (km)'])
+        for c in communes_triees:
+            writer.writerow([c.nom, c.lat, c.lon, f"{c.distance:.2f}"])
+    msg.showinfo("Export terminé", "Les résultats ont été exportés avec succès.")
+
+def main():
+    chemin = input("Chemin du fichier CSV : ")
+    communes = charger_communes(chemin)
+    print(f"{len(communes)} communes chargées.")
+
+    if not communes:
+        print("⚠️ Aucune commune n'a été chargée. Vérifie le chemin et le format du fichier.")
+        return
+
+    ville_ref = input("Nom de la ville de référence : ").lower()
+    ref = next((c for c in communes if c.nom.lower() == ville_ref), None)
+
+    if not ref:
+        suggestions = [c.nom for c in communes if ville_ref in c.nom.lower()]
+        if suggestions:
+            print("Ville non trouvée. Villes similaires :")
+            for s in suggestions[:5]:
+                print(f"  - {s}")
+        else:
+            print("Ville non trouvée et aucune suggestion.")
+        return
+
+    lat_ref, lon_ref = ref.lat, ref.lon
+    for c in communes:
+        c.calculer_distance(lat_ref, lon_ref)
+
+    communes_triees = tri_rapide(communes)
+    proche, q1, med, loin = quantiles(communes_triees)
+
+    print("\nStatistiques :")
+    print(f"Ville la plus proche : {proche}")
+    print(f"Premier quartile : {q1}")
+    print(f"Médiane : {med}")
+    print(f"Ville la plus éloignée : {loin}")
+
+    print("\nComparaison des algorithmes de tri...")
+    comparer_algos(communes, lat_ref, lon_ref)
+
+    reponse = input("Souhaites-tu exporter les résultats ? (o/n) : ").strip().lower()
+    if reponse == 'o':
+        exporter_resultats(communes_triees)
+
+if __name__ == "__main__":
+    main()

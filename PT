@@ -1,0 +1,178 @@
+"""
+C:/Users/tgero/Downloads/communes-france-2025.csv
+"""
+import csv
+import math
+import time
+import tkinter as tk
+from tkinter import filedialog, simpledialog
+import tkinter.messagebox as msg  # ✅ tu gardes cette ligne uniquement si tu utilises msg.showinfo(...)
+
+"""
+Partie concernant les COMMUNES & FONCTIONS DE BASE
+
+"""
+
+
+class Commune: # Cette classe représente une commune avec son nom, latitude, longitude et distance à la ville de référence.
+    def __init__(self, nom, lat, lon):
+        self.nom = nom
+        self.lat = float(lat)
+        self.lon = float(lon)
+        self.distance = 0
+
+    def calculer_distance(self, lat_ref, lon_ref): # Cette méthode calcule la distance entre la commune et une ville de référence.
+        self.distance = haversine(self.lat, self.lon, lat_ref, lon_ref)
+
+    def __repr__(self): # Cette méthode permet d'afficher la commune de manière lisible.
+        return f"{self.nom} ({self.lat}, {self.lon}) - {self.distance:.2f} km"
+
+def haversine(lat1, lon1, lat2, lon2):  # Cette fonction calcule la distance entre deux points géographiques en utilisant la formule de Haversine.
+    R = 6371
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi/2)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda/2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+def charger_communes(fichier_csv): # Cette fonction charge les données des communes à partir d'un fichier CSV et crée une liste d'objets Commune.
+    communes = []
+    with open(fichier_csv, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                nom = row['nom_standard']
+                lat = float(row['latitude_mairie'])
+                lon = float(row['longitude_mairie'])
+                communes.append(Commune(nom, lat, lon))
+            except (ValueError, KeyError):
+                continue
+    return communes
+
+"""
+Partie concernant les ALGORITHMES DE TRI
+"""
+
+
+def tri_insertion(communes): # Cette fonction trie les communes par distance à la ville de référence en utilisant l'algorithme de tri par insertion.
+    communes = communes.copy()
+    for i in range(1, len(communes)):
+        key = communes[i]
+        j = i - 1
+        while j >= 0 and communes[j].distance > key.distance:
+            communes[j + 1] = communes[j]
+            j -= 1
+        communes[j + 1] = key
+    return communes
+
+def tri_rapide(communes): # Cette fonction trie les communes par distance à la ville de référence en utilisant l'algorithme de tri rapide.
+    if len(communes) <= 1:
+        return communes
+    pivot = communes[len(communes) // 2]
+    gauche = [x for x in communes if x.distance < pivot.distance]
+    centre = [x for x in communes if x.distance == pivot.distance]
+    droite = [x for x in communes if x.distance > pivot.distance]
+    return tri_rapide(gauche) + centre + tri_rapide(droite)
+
+def tri_fusion(communes): # Cette fonction trie les communes par distance à la ville de référence en utilisant l'algorithme de tri par fusion.
+    if len(communes) <= 1:
+        return communes
+    milieu = len(communes) // 2
+    gauche = tri_fusion(communes[:milieu])
+    droite = tri_fusion(communes[milieu:])
+    return fusion(gauche, droite)
+
+def fusion(gauche, droite): # Cette fonction fusionne deux listes triées de communes en une seule liste triée.
+    resultat = []
+    i = j = 0
+    while i < len(gauche) and j < len(droite):
+        if gauche[i].distance <= droite[j].distance:
+            resultat.append(gauche[i])
+            i += 1
+        else:
+            resultat.append(droite[j])
+            j += 1
+    resultat.extend(gauche[i:])
+    resultat.extend(droite[j:])
+    return resultat
+
+"""
+Partie concernant les STATISTIQUES
+""" 
+def quantiles(communes_triees): # Cette fonction calcule les quantiles (minimum, premier quartile, médiane et maximum) des distances des communes triées.
+    n = len(communes_triees)
+    q1 = communes_triees[n // 4]
+    mediane = communes_triees[n // 2]
+    return communes_triees[1], q1, mediane, communes_triees[-1]
+
+"""
+Comparaison des temps 
+"""
+def comparer_algos(communes, lat_ref, lon_ref): # Cette fonction compare les temps d'exécution des algorithmes de tri sur des sous-ensembles de communes.
+    tailles = [100, 500, 1000, 2000, 3000]
+    resultats = []
+
+    for taille in tailles:
+        sous_ensemble = communes[:taille]
+        for c in sous_ensemble:
+            c.calculer_distance(lat_ref, lon_ref)
+
+        mesures = []
+        for nom_algo, algo in [('Insertion', tri_insertion), ('Rapide', tri_rapide), ('Fusion', tri_fusion)]:
+            debut = time.time()
+            algo(sous_ensemble)
+            duree = time.time() - debut
+            mesures.append(f"{nom_algo} ({taille} éléments) : {duree:.4f} s")
+
+        resultats.extend(mesures)
+    msg.showinfo("Temps de tri", "\n".join(resultats))
+
+
+"""
+Programme principal
+"""
+def main(): # Cette fonction est le point d'entrée du programme. Elle charge les communes, calcule les distances et affiche les résultats.
+    chemin = input("Chemin du fichier CSV : ")
+    communes = charger_communes(chemin)
+    print(f"{len(communes)} communes chargées.")
+
+    if not communes:
+        print("⚠️ Aucune commune n'a été chargée. Vérifie le chemin et le format du fichier.")
+        return
+
+    ville_ref = input("Nom de la ville de référence : ").lower()
+    ref = next((c for c in communes if c.nom.lower() == ville_ref), None)
+    if not ref:
+        print("Ville non trouvée.")
+        return
+
+    lat_ref, lon_ref = ref.lat, ref.lon
+    for c in communes:
+        c.calculer_distance(lat_ref, lon_ref)
+
+    communes_triees = tri_rapide(communes)
+    proche, q1, med, loin = quantiles(communes_triees) 
+
+    print("\nStatistiques :")
+    print(f"Ville la plus proche : {proche}")
+    print(f"Premier quartile : {q1}")
+    print(f"Médiane : {med}")
+    print(f"Ville la plus éloignée : {loin}")
+
+    print("\nComparaison des algorithmes de tri...")
+    comparer_algos(communes, lat_ref, lon_ref)
+
+if __name__ == "__main__":
+    main()
+
+def exporter_resultats(communes_triees): # Cette fonction exporte les résultats triés dans un fichier CSV.
+    chemin = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+    if not chemin:
+        return
+    with open(chemin, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Nom', 'Latitude', 'Longitude', 'Distance (km)'])
+        for c in communes_triees:
+            writer.writerow([c.nom, c.lat, c.lon, f"{c.distance:.2f}"])
+    messagebox.showinfo("Export terminé", "Les résultats ont été exportés avec succès.")

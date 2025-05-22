@@ -1,0 +1,178 @@
+import csv
+import math
+import time
+import tkinter as tk
+from tkinter import filedialog, simpledialog
+import tkinter.messagebox as msg  # ✅ used for msg.showinfo(...)
+
+class City:
+    def __init__(self, name, lat, lon):
+        self.name = name
+        self.lat = float(lat)
+        self.lon = float(lon)
+        self.distance = 0
+
+    def compute_distance(self, ref_lat, ref_lon):
+        self.distance = haversine(self.lat, self.lon, ref_lat, ref_lon)
+
+    def __repr__(self):
+        return f"{self.name} ({self.lat}, {self.lon}) - {self.distance:.2f} km"
+
+def haversine(lat1, lon1, lat2, lon2):
+    R = 6371
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
+def load_cities(csv_file):
+    cities = []
+    with open(csv_file, newline='', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            try:
+                name = row['nom_standard']
+                lat = float(row['latitude_mairie'])
+                lon = float(row['longitude_mairie'])
+                cities.append(City(name, lat, lon))
+            except (ValueError, KeyError):
+                continue
+    return cities
+
+def insertion_sort(cities):
+    cities = cities.copy()
+    for i in range(1, len(cities)):
+        key = cities[i]
+        j = i - 1
+        while j >= 0 and cities[j].distance > key.distance:
+            cities[j + 1] = cities[j]
+            j -= 1
+        cities[j + 1] = key
+    return cities
+
+def quick_sort(cities):
+    if len(cities) <= 1:
+        return cities
+    pivot = cities[len(cities) // 2]
+    left = [x for x in cities if x.distance < pivot.distance]
+    center = [x for x in cities if x.distance == pivot.distance]
+    right = [x for x in cities if x.distance > pivot.distance]
+    return quick_sort(left) + center + quick_sort(right)
+
+def merge_sort(cities):
+    if len(cities) <= 1:
+        return cities
+    mid = len(cities) // 2
+    left = merge_sort(cities[:mid])
+    right = merge_sort(cities[mid:])
+    return merge(left, right)
+
+def merge(left, right):
+    result = []
+    i = j = 0
+    while i < len(left) and j < len(right):
+        if left[i].distance <= right[j].distance:
+            result.append(left[i])
+            i += 1
+        else:
+            result.append(right[j])
+            j += 1
+    result.extend(left[i:])
+    result.extend(right[j:])
+    return result
+
+def get_quantiles(sorted_cities):
+    n = len(sorted_cities)
+    q1 = sorted_cities[n // 4]
+    median = sorted_cities[n // 2]
+    # We return sorted_cities[1] (not [0]) to skip the reference city itself
+    return sorted_cities[1], q1, median, sorted_cities[-1]
+
+import matplotlib.pyplot as plt  # ✅ Already added at the top
+
+def compare_algorithms(cities, ref_lat, ref_lon):
+    sizes = [100, 500, 1000, 2000, 3000]
+    algorithms = ['Insertion', 'Quick', 'Merge']
+    results = {algo: [] for algo in algorithms}
+
+    for size in sizes:
+        subset = cities[:size]
+        for c in subset:
+            c.compute_distance(ref_lat, ref_lon)
+
+        for name, algo in [('Insertion', insertion_sort), ('Quick', quick_sort), ('Merge', merge_sort)]:
+            copy = subset.copy()
+            start = time.time()
+            algo(copy)
+            duration = time.time() - start
+            results[name].append(duration)
+
+    # Plotting the graph
+    for name in algorithms:
+        plt.plot(sizes, results[name], marker='o', label=name)
+
+    plt.title("Sorting Algorithms Comparison")
+    plt.xlabel("Number of cities sorted")
+    plt.ylabel("Time (seconds)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+def export_results(sorted_cities):
+    path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+    if not path:
+        return
+    with open(path, mode='w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Name', 'Latitude', 'Longitude', 'Distance (km)'])
+        for c in sorted_cities:
+            writer.writerow([c.name, c.lat, c.lon, f"{c.distance:.2f}"])
+    msg.showinfo("Export complete", "The results were successfully exported.")
+
+def main():
+    path = input("CSV file path: ")
+    cities = load_cities(path)
+    print(f"{len(cities)} cities loaded.")
+
+    if not cities:
+        print("⚠️ No city loaded. Check the path and file format.")
+        return
+
+    ref_name = input("Reference city name: ").lower()
+    ref_city = next((c for c in cities if c.name.lower() == ref_name), None)
+
+    if not ref_city:
+        suggestions = [c.name for c in cities if ref_name in c.name.lower()]
+        if suggestions:
+            print("City not found. Similar names:")
+            for s in suggestions[:5]:
+                print(f"  - {s}")
+        else:
+            print("City not found and no suggestions.")
+        return
+
+    ref_lat, ref_lon = ref_city.lat, ref_city.lon
+    for c in cities:
+        c.compute_distance(ref_lat, ref_lon)
+
+    sorted_cities = quick_sort(cities)
+    closest, q1, median, farthest = get_quantiles(sorted_cities)
+
+    print("\nStatistics:")
+    print(f"Closest city: {closest}")
+    print(f"First quartile: {q1}")
+    print(f"Median: {median}")
+    print(f"Farthest city: {farthest}")
+
+    print("\nComparing sorting algorithms...")
+    compare_algorithms(cities, ref_lat, ref_lon)
+
+    answer = input("Do you want to export the results? (y/n): ").strip().lower()
+    if answer == 'y':
+        export_results(sorted_cities)
+
+if __name__ == "__main__":
+    main()
