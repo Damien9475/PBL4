@@ -180,6 +180,31 @@ def get_quantiles(sorted_cities):
 
 import matplotlib.pyplot as plt  # Already added at the top
 
+def display_distances_to_major_cities(ref_city, cities):
+    """
+    Affiche les distances entre la ville de référence et un ensemble de grandes villes françaises.
+
+    Args:
+        ref_city (City): La ville de référence.
+        cities (list of City): Liste de toutes les villes chargées depuis le CSV.
+    """
+    major_cities = {
+        'lille', 'paris', 'nantes', 'toulouse', 'nice',
+        'bordeaux', 'rennes', 'strasbourg', 'lyon', 'marseille'
+    }
+
+    ref_lat, ref_lon = ref_city.lat, ref_city.lon
+    found_cities = {c.name.lower(): c for c in cities if c.name.lower() in major_cities}
+
+    print(f"\nDistances from {ref_city.name} to major cities:")
+    for name in sorted(major_cities):
+        city = found_cities.get(name)
+        if city:
+            distance = haversine(ref_lat, ref_lon, city.lat, city.lon)
+            print(f"{city.name:10s} : {distance:.2f} km")
+        else:
+            print(f"{name.capitalize():10s} : not found in data.")
+
 
 """
 def compare_algorithms(cities, ref_lat, ref_lon):
@@ -287,6 +312,7 @@ def main():
     for c in cities:
         c.compute_distance(ref_lat, ref_lon)
 
+    display_distances_to_major_cities(ref_city, cities)
     sorted_cities = quick_sort(cities)
     closest, q1, median, farthest = get_quantiles(sorted_cities)
 
