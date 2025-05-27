@@ -1,6 +1,7 @@
 import csv
 import math
 import time
+import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import filedialog, simpledialog
 import tkinter.messagebox as msg  # used for msg.showinfo(...)
@@ -178,8 +179,6 @@ def get_quantiles(sorted_cities):
     # We return sorted_cities[1] (not [0]) to skip the reference city itself
     return sorted_cities[1], q1, median, sorted_cities[-1]
 
-import matplotlib.pyplot as plt  # Already added at the top
-
 def display_distances_to_major_cities(ref_city, cities):
     """
     Affiche les distances entre la ville de référence et un ensemble de grandes villes françaises.
@@ -227,8 +226,6 @@ def compare_algorithms(cities, ref_lat, ref_lon):
 
 """
 
-
-
 def compare_algorithms(cities, ref_lat, ref_lon):
     """
     Compare the performance of sorting algorithms.
@@ -240,6 +237,7 @@ def compare_algorithms(cities, ref_lat, ref_lon):
     """
     sizes = [100, 500, 1000, 2000, 3000]
     algorithms = ['Insertion', 'Quick', 'Merge']
+    #algorithms = ['Quick', 'Merge']
     results = {algo: [] for algo in algorithms}
 
     for size in sizes:
@@ -248,6 +246,7 @@ def compare_algorithms(cities, ref_lat, ref_lon):
             c.compute_distance(ref_lat, ref_lon)
 
         for name, algo in [('Insertion', insertion_sort), ('Quick', quick_sort), ('Merge', merge_sort)]:
+        #for name, algo in [('Quick', quick_sort), ('Merge', merge_sort)]:
             copy = subset.copy()
             start = time.time()
             algo(copy)
